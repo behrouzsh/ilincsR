@@ -1,0 +1,206 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+#Loading packages
+```{r}
+library(pkgnet)
+library(igraph)
+library(rgl)
+# library(InteractiveIGraph)
+library(knitr)
+library(tinytex)
+library(httr)
+library(jsonlite)
+library(htmltools)
+
+library(ilincsapir)
+```
+
+##Copying file to the server for use with ilincsr ocpu docker
+```{bash}
+scp /Users/medvedm/git/mario/ilincsTest/sigFile2.tsv mario@eh332new.ketl.uc.edu:/mnt/raid/tmp/iLincs/signatures/
+```
+# Local mac installation
+## Neither Bing or BingZ working after just installing from github
+```{r}
+
+install.packages("/Users/behrouzshamsaei/Documents/ilincsR", 
+repos = NULL, 
+type = "source")
+
+library(ilincsR)
+library(iLincsCor)
+t2 <- findConcordancesBingZ(exp="sigFile.tsv",userUploadedProfile="/Users/medvedm/git/mario/ilincsTest/",path_to_write="/Users/medvedm/git/mario/ilincsTest/",metadata=T,libName="LIB_5",debuging=T, sigDB="ilincs_sigs",topSigs=F)
+sapply(t2,class)
+head(t2$concordanceTable)
+
+system.time(t2 <- findConcordancesBing(exp="sigFile2.tsv",userUploadedProfile="/mnt/raid/tmp/iLincs/signatures/",path_to_write="/mnt/raid/tmp/iLincs/signatures/",metadata=T,libName="LIB_5",debuging=T, sigDB="ilincs_sigs",topSigs=F))
+
+```
+
+#IlincsR.findConcordances
+##Call from ilincs API
+```{r}
+apiUrl<-"http://www.ilincs.org/api/SignatureMeta/upload"
+sigFile <- "~/git/mario/ilincsTest/sigFile2.tsv"
+req <- POST(apiUrl, body=list(file=upload_file(sigFile)))
+signatureFile <- httr::content(req)$status$fileName[[1]]
+signatureFile
+
+sig<-read.table(sigFile,header = T,sep="\t",stringsAsFactors = F)
+sig2<-read.table("~/tmp/ilincs/tmp/processedSig_Fri_Oct_7_10_41_06_2022_5025179.xls",header = T,sep="\t",stringsAsFactors = F)
+
+system.time(uploadJunk<-uploadSigToilincs(sig=sig,sigFilename=NULL,openWindow=F,genes=NULL,directory=".",deleteLocal=F,ilincsServer="http://www.ilincs.org/"))
+system.time(junk1<-cmap(sig=NULL,ilincsFileName=uploadJunk["ilincsFileName"],ilincsLibrary="CP",directory=".",ilincsServer="http://www.ilincs.org/"))
+
+#Not working 
+system.time(uploadJunk<-uploadSigToilincs(sig=sig,sigFilename=NULL,openWindow=F,genes=NULL,directory=".",deleteLocal=F,ilincsServer="http://new.ilincs.org/"))
+system.time(junk2<-cmap(sig=NULL,ilincsFileName=uploadJunk["ilincsFileName"],ilincsLibrary="CP",directory=".",ilincsServer="http://new.ilincs.org/"))
+
+head(junk1)
+head(junk2)
+time curl 'http://new.ilincs.org/ocpu/library/ilincsR/R/findConcordancesBingZ' -X 'POST' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' --data 'libName="LIB_5"&exp="processedSig_Tue_Oct_11_13_58_01_2022_9138284.xls"&path_to_write="/mnt/raid/tmp/"&userUploadedProfile="/mnt/raid/tmp/"&metadata=F&logPcut=14'
+
+# apiUrl="http://eh332new.ketl.uc.edu:8003/ocpu/library/ilincsR/R/findConcordancesBing/json/"
+apiUrl="http://new.ilincs.org/ocpu/library/ilincsR/R/findConcordancesBingZ/json/"
+req <- POST(apiUrl, body = list(exp="processedSig_Tue_Oct_11_13_58_01_2022_9138284.xls", userUploadedProfile="/mnt/raid/tmp/", path_to_write="/mnt/raid/tmp/", metadata=F, libName="LIB_5"),encode = "json")
+res<-data.table::rbindlist(httr::content(req)$concordanceTable, use.names = TRUE, fill = TRUE)
+
+##This is working - not sure where new.ilincs.org/ocpu is running - does not seem to have access to the newly uploaded file
+system.time(uploadJunk<-uploadSigToilincs(sig=sig,sigFilename=NULL,openWindow=F,genes=NULL,directory=".",deleteLocal=F,ilincsServer="http://new.ilincs.org/"))
+apiUrl="http://new.ilincs.org/ocpu/library/ilincsR/R/findConcordancesBingZ/json/"
+system.time(res<-data.table::rbindlist(httr::content(POST(apiUrl, body = list(exp=uploadJunk["ilincsFileName"], userUploadedProfile="/mnt/raid/tmp/", path_to_write="/mnt/raid/tmp/", metadata=F, libName="LIB_5"),encode = "json"))$concordanceTable, use.names = TRUE, fill = TRUE))
+
+
+##This is not working - not seing the ocpu server
+apiUrl="http://www.ilincs.org/ocpu/library/ilincsR/R/findConcordancesBing/json/"
+req <- POST(apiUrl, body = list(exp=uploadJunk["ilincsFileName"], userUploadedProfile="/mnt/raid/tmp/", path_to_write="/mnt/raid/tmp/", metadata=F, libName="LIB_5"),encode = "json")
+res<-data.table::rbindlist(httr::content(req)$concordanceTable, use.names = TRUE, fill = TRUE)
+
+
+apiUrl <- "http://new.ilincs.org/api/ilincsR/findConcordances"
+req <- (POST(apiUrl, body = list(file=uploadJunk["ilincsFileName"], lib="LIB_5"), encode = "form"))
+output <- data.table::rbindlist(httr::content(req)$concordanceTable, use.names = TRUE, fill = TRUE)
+head(output)
+```
+
+## Calling findConcordancesBing from eh332new container
+
+```{r}
+setwd("/mnt/raid/tmp/iLincs/signatures/")
+  
+system.time(t2 <- findConcordancesBing(exp="sigFile2.tsv",userUploadedProfile="/mnt/raid/tmp/iLincs/signatures/",path_to_write="/mnt/raid/tmp/iLincs/signatures/",metadata=T,libName="LIB_5",debuging=T, sigDB="ilincs_sigs",topSigs=F))
+system.time(t2 <- findConcordancesBing(exp="sigFile2.tsv",userUploadedProfile="/mnt/raid/tmp/iLincs/signatures/",path_to_write="/mnt/raid/tmp/iLincs/signatures/",metadata=T,libName="LIB_5",debuging=F, sigDB="ilincs_sigs",topSigs=F))
+
+sapply(t2,class)
+head(t2$concordanceTable)
+
+```
+
+##Calling findConcordancesBing from mac
+```{r}
+###The function is loading the library signatures. Are they pre-loaded in opencpu? 
+t2 <- findConcordancesBing(exp="sigFile.tsv",userUploadedProfile="/Users/medvedm/git/mario/ilincsTest/",path_to_write="/Users/medvedm/git/mario/ilincsTest/",metadata=T,libName="LIB_5",debuging=T, sigDB="ilincs_sigs",topSigs=F)
+sapply(t2,class)
+head(t2$concordanceTable)
+```
+##Calling findConcordancesBing from locally installed ilincsR
+```{r}
+###The function is loading the library signatures. Are they pre-loaded in opencpu? 
+system.time(t2 <- findConcordancesBing(exp="sigFile.tsv",userUploadedProfile="/mnt/raid/tmp/iLincs/signatures/",path_to_write="/mnt/raid/tmp/",metadata=T,libName="LIB_5",debuging=T, sigDB="ilincs_sigs",topSigs=F))
+sapply(t2,class)
+head(t2$concordanceTable)
+```
+##ocpu call on eh332new docker
+```{r}
+apiUrl="http://eh332new.ketl.uc.edu:8003/ocpu/library/ilincsR/R/findConcordancesBing/json/"
+req <- POST(apiUrl, body = list(exp="sigFile.tsv", userUploadedProfile="/mnt/raid/tmp/iLincs/signatures/", path_to_write="/mnt/raid/tmp/", metadata=T, libName="LIB_5", debuging=T, sigDB="ilincs_sigs", topSigs=F),encode = "json")
+res<-data.table::rbindlist(httr::content(req)$concordanceTable, use.names = TRUE, fill = TRUE)
+
+req <- POST(apiUrl, body = list(exp="sigFile2.tsv", userUploadedProfile="/mnt/raid/tmp/iLincs/signatures/", path_to_write="/mnt/raid/tmp/", metadata=T, libName="LIB_5", debuging=T, sigDB="ilincs_sigs", topSigs=F),encode = "json")
+res<-data.table::rbindlist(httr::content(req)$concordanceTable, use.names = TRUE, fill = TRUE)
+
+#'{"libName":"LIB_5","mode":"geneList","signatureProfile": {"genes":["ZNF740","PFKP","RPL12","ABAT","EIF4A3","MAP3K2","RPS6KA1","BRAF","PLEC","FASN","DPF2"]}}'
+```
+
+
+#findConcordancesSC
+##findConcordancesBing
+###calling directly from ilincsR
+```{r}
+library(ilincsR)
+debuging=F
+metacols="compound,lincsPertID,integratedGeneTargets,concentration,cellLine,time"
+# glist <- "57369,9086,7054,79148,124221,85465,5730,245973,875,54535,63943,51348,94104,55103"
+glist<- c("ZNF740","PFKP","RPL12","ABAT","EIF4A3","MAP3K2","RPS6KA1","BRAF","PLEC","FASN","DPF2")
+
+t5 <- findConcordancesBing(exp="geneList",userUploadedProfile=list(genes=glist), path_to_write="/Users/medvedm/tmp/",metadata=T,libName="LIB_5",debuging=T, sigDB="ilincs_sigs",topSigs=F)
+head(t5$sigScores)
+```
+###Calling functions used by findConcordancesBing
+```{r}
+enrichTable <- computeGenelistEnrichment(queryGenelist=glist, libName="lib_5", debuging=F, chost="gimm14.ketl.uc.edu", dhost="eh3.uc.edu", dport=4040, org="Hs")
+sigScores <- data.frame(signature=enrichTable[, 1], score=round(enrichTable[, 3],4), stringsAsFactors=FALSE)
+
+homoloArr <- getHomologousGenes(glist, org="Hs")
+homoloArr <- homoloArr[which(!is.na(homoloArr[,3])),]
+
+tax <- org2tax("Hs")
+servSet <- getServerSettings(debuging=F)
+
+sigmeta <- getSignatureMeta(prop=metacols, signatures=paste(sigScores$signature, collapse=","), debuging=debuging, sigDB=servSet$sigDB)
+sigmatch <- match(sigScores$signature, sigmeta$signatureID)
+sigmeta <- sigmeta[sigmatch,]
+sigmeta <- sigmeta[,-1]
+sigScores2 <- cbind(sigScores, sigmeta[,1:4])
+
+```
+##calling ilincs api
+```{r connectivity by gene list}
+apiUrl="http://www.ilincs.org/api/ilincsR/findConcordancesSC"
+req <- POST(apiUrl, body = list(mode="geneList",metadata=TRUE,signatureProfile = list(genes=top100signature$Name_GeneSymbol)),encode = "json")
+ilincsEnrichedSignatures <- data.table::rbindlist(httr::content(req)$sigScores, use.names = TRUE, fill = TRUE)
+head(ilincsEnrichedSignatures)
+```
+##ocpu call
+```{r}
+apiUrl="http://eh332new.ketl.uc.edu:8003/ocpu/library/ilincsR/R/findConcordancesBing/json/"
+req <- POST(apiUrl, body = list(libName="LIB_5", path_to_write="/mnt/raid/tmp/",exp="geneList",metadata=TRUE,userUploadedProfile = list(genes=glist),debuging=T, sigDB="ilincs_sigs",topSigs=F),encode = "json")
+res<-data.table::rbindlist(httr::content(req)$sigScores, use.names = TRUE, fill = TRUE)
+head(res)
+#'{"libName":"LIB_5","mode":"geneList","signatureProfile": {"genes":["ZNF740","PFKP","RPL12","ABAT","EIF4A3","MAP3K2","RPS6KA1","BRAF","PLEC","FASN","DPF2"]}}'
+```
+##via dev.ilincs.org api
+```{r}
+apiUrl="http://dev.ilincs.org/api/ilincsR/findConcordancesSC"
+req <- POST(apiUrl, body = list(mode="geneList",metadata=TRUE,signatureProfile = list(genes=glist)),encode = "json")
+ilincsEnrichedSignatures <- data.table::rbindlist(httr::content(req)$sigScores, use.names = TRUE, fill = TRUE)
+head(ilincsEnrichedSignatures)
+
+apiUrl="http://www.ilincs.org/api/ilincsR/findConcordancesSC"
+req <- POST(apiUrl, body = list(mode="geneList",metadata=TRUE,signatureProfile = list(genes=glist)),encode = "json")
+ilincsEnrichedSignatures <- data.table::rbindlist(httr::content(req)$sigScores, use.names = TRUE, fill = TRUE)
+head(ilincsEnrichedSignatures)
+
+```
+
+##Other calls to findConcordancesBing
+```{r}
+## to investigate topSigs=TRUE
+t2 <- findConcordancesBing(exp="processedSig_Mon_Sep_17_10_47_32_2018_4954396.xls",userUploadedProfile="/mnt/raid/tmp/",path_to_write="/mnt/raid/tmp/",metadata=T,libName="LIB_6",debuging=T, sigDB="ilincs_sigs",topSigs=F)
+t3 <- findConcordancesBing(exp="subsetSig_Mon_Oct_22_10_37_04_2018_1421330.xls",userUploadedProfile="/opt/raid10/genomics/mehdi/ilincs/output/",path_to_write="/opt/raid10/genomics/mehdi/ilincs/output/",metadata=T,libName="LIB_2",debuging=T, sigDB="ilincs_sigs",topSigs=F)
+t4 <- findConcordancesBing(exp="completeSigtest.xls",userUploadedProfile="/opt/raid10/genomics/mehdi/ilincs/output/",path_to_write="/opt/raid10/genomics/mehdi/ilincs/output/",metadata=T,libName="LIB_2",debuging=T, sigDB="ilincs_sigs",topSigs=F)
+t5 <- findConcordancesBing(exp="geneList",userUploadedProfile=glist, path_to_write="/opt/raid10/genomics/mehdi/ilincs/output/",metadata=T,libName="LIB_2",debuging=T, sigDB="ilincs_sigs",topSigs=F)
+t6 <- findConcordancesBing(exp="grein_org.xls",userUploadedProfile="/opt/raid10/genomics/mehdi/ilincs/output/",path_to_write="/opt/raid10/genomics/mehdi/ilincs/output/",metadata=T,libName="LIB_1",debuging=T, sigDB="ilincs_sigs",topSigs=F, logPcut=Inf)
+
+t2 <- findConcordancesBing(exp="processedSig_Wed_Dec_5_12_44_53_2018_1056980.xls",userUploadedProfile="/opt/raid10/genomics/mehdi/ilincs/output/",path_to_write="/opt/raid10/genomics/mehdi/ilincs/output/",metadata=T,libName="LIB_6",debuging=T, sigDB="ilincs_sigs",topSigs=F)
+
+t2 <- findConcordancesBing(exp="sig_Tue_Jan_29_16_51_48_2019_2608623.xls",userUploadedProfile="/mnt/raid/tmp/",path_to_write="/mnt/raid/tmp/",metadata=T,libName="LIB_13",debuging=T, sigDB="ilincs_sigs",topSigs=F)
+
+t7 <- findConcordancesBing(exp="processedSig_Thu_May_30_13_59_35_2019_8210295.xls", libName="LIB_2", path_to_write= "/mnt/raid/tmp/", userUploadedProfile="/mnt/raid/tmp/", sigDB="ilincs_sigs", topSigs=FALSE, debuging=T)
+t7_2 <- findConcordancesBing(exp="processedSig_Thu_May_30_14_49_24_2019_1011804.xls", libName="LIB_2", path_to_write= "/mnt/raid/tmp/", userUploadedProfile="/mnt/raid/tmp/", sigDB="ilincs_sigs", topSigs=FALSE, debuging=T)
+t8 <- findConcordancesBing(exp="sig_Thu_Jun_20_11_21_51_2019_1210226.xls", libName="LIB_5", path_to_write= "/mnt/raid/tmp/", userUploadedProfile="/mnt/raid/tmp/", sigDB="ilincs_sigs", topSigs=FALSE, debuging=T)
+```
+

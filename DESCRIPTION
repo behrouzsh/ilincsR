@@ -1,0 +1,21 @@
+Package: ilincsR
+Type: Package
+Title: Integrative anaylysis tools for LINCS data
+Version: 3.3.4
+Date: 2019-11-21
+Authors: Mehdi Fazel Najafabadi, Mario Medvedovic, Mukta Phatak
+Maintainer: <Mario.Medvedovic@uc.edu>
+Description: Statistical methods addressing two levels of data integration:
+    integration of the same type readouts into meta-signatures and integration of
+    various types of readouts and meta-signatures into regulatory network activity
+    signatures. The libraries of the signatures, meta-signatures and regulatory
+    network activity signatures constructed using LINCS datasets are leveraged in
+    the analysis of disease-related genomics data.
+Depends:
+    R (>= 3.2.0)
+Imports: 
+    Biobase,
+	plotly
+License: GNU General Public License
+LazyData: true
+RoxygenNote: 6.1.1

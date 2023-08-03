@@ -1,0 +1,56 @@
+
+#' A function for ...
+#'
+#' This function allows you to ...
+#' @param query.p ...
+#' @param reference.p ...
+#' @param query.gL ...
+#' @param reference.gL ...
+#' @param na.rm ...
+#' @param estimateNullDistr ...
+#' @param nullDistrQuantiles ...
+#' @param nullDistrN ...
+#' @param tolerateWarnings ...
+#' @param pAdjust.method.query ...
+#' @param pAdjust.method.reference ...
+#' @param lambda ...
+#' @param rescale ...
+#' @param plotRescaled ...
+#' @param multicoreN ...
+#' @param authors M. Fazel-Najafabadi
+#' @keywords test
+#' @export 
+#' @examples
+#' res <- batchTregGRS(....)
+
+create_treeview_files <- function(sessionID,dataClust,ifCluster,isCentered,colClust,rowClust,path_to_write, sigDB="ilincs_sigs", chost="ilincs.org", debuging=FALSE) {
+	##Create jnlp's first
+	create_jnlps(sessionID,isCentered,path_to_write, sigDB=sigDB, chost=chost, debuging=debuging)
+
+	 if(ifCluster == "row") { # don't want clustered data
+		if(isCentered){
+		ctc::r2gtr(rowClust,file=paste(path_to_write,"TreeView-Centered",sessionID,".gtr",sep=""),distance="euc",dec='.',digits=5)
+		} else {
+		ctc::r2gtr(rowClust,file=paste(path_to_write,"TreeView",sessionID,".gtr",sep=""),distance="euc",dec='.',digits=5)
+		}
+	} else if(ifCluster == "col") {
+		if(isCentered){
+		ctc::r2atr(colClust,file=paste(path_to_write,"TreeView-Centered",sessionID,".atr",sep=""),distance="euc",dec='.',digits=5)
+		} else{
+		ctc::r2atr(colClust,file=paste(path_to_write,"TreeView",sessionID,".atr",sep=""),distance="euc",dec='.',digits=5)
+		}
+	} else if(ifCluster == "both") {
+		if(isCentered){
+		ctc::r2gtr(rowClust,file=paste(path_to_write,"TreeView-Centered",sessionID,".gtr",sep=""),distance="euc",dec='.',digits=5)
+		ctc::r2atr(colClust,file=paste(path_to_write,"TreeView-Centered",sessionID,".atr",sep=""),distance="euc",dec='.',digits=5)
+		} else {
+		ctc::r2gtr(rowClust,file=paste(path_to_write,"TreeView",sessionID,".gtr",sep=""),distance="euc",dec='.',digits=5)
+		ctc::r2atr(colClust,file=paste(path_to_write,"TreeView",sessionID,".atr",sep=""),distance="euc",dec='.',digits=5)
+		}
+	}
+	if(isCentered) {
+		ctc::r2cdt(rowClust,colClust,dataClust,labels=T,description=T,file=paste(path_to_write,"TreeView-Centered",sessionID,".cdt",sep=""))
+	} else {
+		ctc::r2cdt(rowClust,colClust,dataClust,labels=T,description=T,file=paste(path_to_write,"TreeView",sessionID,".cdt",sep=""))
+	}
+}
